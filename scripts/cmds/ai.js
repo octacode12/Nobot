@@ -13,7 +13,7 @@ const EDIT_API = "https://gemini-edit-omega.vercel.app/edit";
 const TMP_DIR = path.join(__dirname, 'tmp');
 if (!fs.existsSync(TMP_DIR)) fs.mkdirSync(TMP_DIR);
 
-// 📥 Téléchargement de fichier
+// 📥 Téléchargement Propre
 const downloadFile = async (url, ext) => {
   const filePath = path.join(TMP_DIR, `${uuidv4()}.${ext}`);
   const response = await axios.get(url, { responseType: 'arraybuffer' });
@@ -21,22 +21,21 @@ const downloadFile = async (url, ext) => {
   return filePath;
 };
 
-// ♻️ Réinitialiser la conversation
+// ♻️ Nettoyer la conversation (Reset)
 const resetConversation = async (api, event, message) => {
-  api.setMessageReaction("♻️", event.messageID, () => {}, true);
+  api.setMessageReaction("🧹", event.messageID, () => {}, true);
   try {
     await axios.delete(`${CLEAR_ENDPOINT}/${event.senderID}`);
-    return message.reply(`✅ Conversation reset for UID: ${event.senderID}`);
+    return message.reply("┏━━━━━ ♻️ ━━━━━┓\n   𝗠𝗘́𝗡𝗔𝗚𝗘 𝗙𝗔𝗜𝗧\n┗━━━━━ ♻️ ━━━━━┛\n\nC'est propre ! Camille a tout effacé, on repart sur de nouvelles bases. 🇨🇮🩵");
   } catch (error) {
-    console.error('❌ Reset Error:', error.message);
-    return message.reply("❌ Reset failed. Try again.");
+    return message.reply("❌ Ahiii ! Le balai est cassé, j'ai pas pu reset.");
   }
 };
 
-// 🎨 Fonction Edit (Gemini-Edit)
+// 🎨 Fonction Edit (La touche artistique de Camille)
 const handleEdit = async (api, event, message, args) => {
   const prompt = args.join(" ");
-  if (!prompt) return message.reply("❗ Please provide text to edit or generate.");
+  if (!prompt) return message.reply("❗ Vieux père, faut dire à Camille ce qu'il doit dessiner !");
 
   api.setMessageReaction("⏳", event.messageID, () => {}, true);
   try {
@@ -46,25 +45,19 @@ const handleEdit = async (api, event, message, args) => {
     }
 
     const res = await axios.get(EDIT_API, { params });
-
-    if (!res.data?.images?.[0]) {
-      api.setMessageReaction("❌", event.messageID, () => {}, true);
-      return message.reply("❌ Failed to generate or edit image.");
-    }
+    if (!res.data?.images?.[0]) throw new Error();
 
     const base64Image = res.data.images[0].replace(/^data:image\/\w+;base64,/, "");
     const buffer = Buffer.from(base64Image, "base64");
-
     const imagePath = path.join(TMP_DIR, `${Date.now()}.png`);
     fs.writeFileSync(imagePath, buffer);
 
-    api.setMessageReaction("✅", event.messageID, () => {}, true);
-    await message.reply({ attachment: fs.createReadStream(imagePath) });
+    api.setMessageReaction("🎨", event.messageID, () => {}, true);
+    await message.reply({ body: "✅ Voilà ton chef-d'œuvre, signé Camille :", attachment: fs.createReadStream(imagePath) });
     fs.unlinkSync(imagePath);
   } catch (error) {
-    console.error("❌ EDIT API Error:", error.response?.data || error.message);
     api.setMessageReaction("❌", event.messageID, () => {}, true);
-    return message.reply("⚠️ Error while generating/editing image.");
+    return message.reply("⚠️ Le pinceau de Camille a glissé... L'API refuse de dessiner.");
   }
 };
 
@@ -72,30 +65,25 @@ const handleEdit = async (api, event, message, args) => {
 const handleYouTube = async (api, event, message, args) => {
   const option = args[0];
   if (!["-v", "-a"].includes(option)) {
-    return message.reply("❌ Usage: youtube [-v|-a] <search or URL>");
+    return message.reply("❌ Usage : .ai youtube [-v (vidéo) | -a (audio)] <titre ou URL>");
   }
 
   const query = args.slice(1).join(" ");
-  if (!query) return message.reply("❌ Provide a search query or URL.");
+  if (!query) return message.reply("❌ Tu veux que Camille télécharge quoi ?");
 
   const sendFile = async (url, type) => {
     try {
       const { data } = await axios.get(`${YT_API}?url=${encodeURIComponent(url)}&type=${type}`);
       const downloadUrl = data.download_url;
-      if (!data.status || !downloadUrl) throw new Error("API failed");
       const filePath = path.join(TMP_DIR, `yt_${Date.now()}.${type}`);
       const writer = fs.createWriteStream(filePath);
       const stream = await axios({ url: downloadUrl, responseType: "stream" });
       stream.data.pipe(writer);
-      await new Promise((resolve, reject) => {
-        writer.on("finish", resolve);
-        writer.on("error", reject);
-      });
-      await message.reply({ attachment: fs.createReadStream(filePath) });
+      await new Promise(r => writer.on("finish", r));
+      await message.reply({ body: `✅ C'est prêt ! Gère ça proprement mogo !`, attachment: fs.createReadStream(filePath) });
       fs.unlinkSync(filePath);
     } catch (err) {
-      console.error(`${type} error:`, err.message);
-      message.reply(`❌ Failed to download ${type}.`);
+      message.reply("❌ Y'a eu un drap sur le téléchargement de Camille.");
     }
   };
 
@@ -103,99 +91,57 @@ const handleYouTube = async (api, event, message, args) => {
 
   try {
     const results = (await ytSearch(query)).videos.slice(0, 6);
-    if (results.length === 0) return message.reply("❌ No results found.");
+    if (results.length === 0) return message.reply("❌ Camille a cherché partout, y'a rien.");
 
-    let list = "";
-    results.forEach((v, i) => {
-      list += `${i + 1}. 🎬 ${v.title} (${v.timestamp})\n`;
-    });
+    let list = "┏━━━━ 📺 𝗬𝗢𝗨𝗧𝗨𝗕𝗘 ━━━━┓\n\n";
+    results.forEach((v, i) => { list += `${i + 1}. 🎬 ${v.title}\n`; });
+    list += "\n┗━━━━━━━━━━━━━━━━━━┛\n💡 Réponds avec le chiffre (1-6) pour que Camille lance le chargement.";
 
-    const thumbs = await Promise.all(
-      results.map(v => axios.get(v.thumbnail, { responseType: "stream" }).then(res => res.data))
-    );
+    const thumbs = await Promise.all(results.map(v => axios.get(v.thumbnail, { responseType: "stream" }).then(res => res.data)));
 
-    api.sendMessage(
-      { body: list + "\nReply with number (1-6) to download.", attachment: thumbs },
-      event.threadID,
-      (err, info) => {
-        global.GoatBot.onReply.set(info.messageID, {
-          commandName: "ai",
-          messageID: info.messageID,
-          author: event.senderID,
-          results,
-          type: option
-        });
-      },
-      event.messageID
-    );
+    api.sendMessage({ body: list, attachment: thumbs }, event.threadID, (err, info) => {
+      global.GoatBot.onReply.set(info.messageID, {
+        commandName: "ai", messageID: info.messageID, author: event.senderID, results, type: option
+      });
+    }, event.messageID);
   } catch (err) {
-    console.error("YouTube error:", err.message);
-    message.reply("❌ Failed to search YouTube.");
+    message.reply("❌ Le réseau YouTube fatigue Camille aujourd'hui.");
   }
 };
 
-// 🧠 Fonction IA principale
-const handleAIRequest = async (api, event, userInput, message, isReply = false) => {
+// 🧠 IA Principale (Le Cœur de Camille)
+const handleAIRequest = async (api, event, userInput, message) => {
   const args = userInput.split(" ");
   const first = args[0]?.toLowerCase();
 
-  if (["edit", "-e"].includes(first)) {
-    return await handleEdit(api, event, message, args.slice(1));
-  }
-
-  if (["youtube", "yt", "ytb"].includes(first)) {
-    return await handleYouTube(api, event, message, args.slice(1));
-  }
-
-  const userId = event.senderID;
-  let messageContent = userInput;
-  let imageUrl = null;
+  if (["edit", "-e"].includes(first)) return await handleEdit(api, event, message, args.slice(1));
+  if (["youtube", "yt", "ytb"].includes(first)) return await handleYouTube(api, event, message, args.slice(1));
 
   api.setMessageReaction("⏳", event.messageID, () => {}, true);
-
-  const urlMatch = messageContent.match(/(https?:\/\/[^\s]+)/)?.[0];
-  if (urlMatch && validUrl.isWebUri(urlMatch)) {
-    imageUrl = urlMatch;
-    messageContent = messageContent.replace(urlMatch, '').trim();
-  }
-
-  if (!messageContent && !imageUrl) {
-    api.setMessageReaction("❌", event.messageID, () => {}, true);
-    return message.reply("💬 Provide a message or image.");
-  }
+  let imageUrl = userInput.match(/(https?:\/\/[^\s]+)/)?.[0];
+  let messageContent = userInput.replace(imageUrl || '', '').trim();
 
   try {
-    const response = await axios.post(API_ENDPOINT, { uid: userId, message: messageContent, image_url: imageUrl });
-    const { reply: textReply, image_url: genImageUrl } = response.data;
-
-    let finalReply = textReply || '✅ AI Response:';
-    finalReply = finalReply
-      .replace(/🎀\s*𝗦𝗵𝗶𝘇𝘂/gi, '🎀 𝗖𝗵𝗿𝗶𝘀𝘁𝘂𝘀')
-      .replace(/Shizu/gi, 'Christus')
-      .replace(/Christuska/gi, 'Christus')
-      .replace(/Aryan Chauhan/gi, 'Christus');
+    const response = await axios.post(API_ENDPOINT, { uid: event.senderID, message: messageContent, image_url: imageUrl });
+    let reply = response.data.reply || '...';
+    
+    // Remplacement du nom Shizu/Christus par Camille
+    reply = reply
+      .replace(/Shizu/gi, 'Camille')
+      .replace(/Christus/gi, 'Camille')
+      .replace(/Aryan Chauhan/gi, 'Camille-Dev');
 
     const attachments = [];
-    if (genImageUrl) {
-      attachments.push(fs.createReadStream(await downloadFile(genImageUrl, 'jpg')));
+    if (response.data.image_url) {
+      attachments.push(fs.createReadStream(await downloadFile(response.data.image_url, 'jpg')));
     }
 
-    const sentMessage = await message.reply({
-      body: finalReply,
-      attachment: attachments.length > 0 ? attachments : undefined
-    });
-
-    global.GoatBot.onReply.set(sentMessage.messageID, {
-      commandName: 'ai',
-      messageID: sentMessage.messageID,
-      author: userId
-    });
-
+    const sent = await message.reply({ body: `✨ 𝗖𝗔𝗠𝗜𝗟𝗟𝗘-𝗔𝗜 🇨🇮🩵 :\n──────────────────\n${reply}`, attachment: attachments });
+    global.GoatBot.onReply.set(sent.messageID, { commandName: 'ai', messageID: sent.messageID, author: event.senderID });
     api.setMessageReaction("✅", event.messageID, () => {}, true);
   } catch (error) {
-    console.error("❌ API Error:", error.message);
     api.setMessageReaction("❌", event.messageID, () => {}, true);
-    message.reply("⚠️ AI Error:\n" + error.message);
+    message.reply("⚠️ Le cerveau de Camille a chauffé... L'API est KO.");
   }
 };
 
@@ -203,62 +149,45 @@ module.exports = {
   config: {
     name: 'ai',
     version: '3.2.0',
-    author: 'Christus',
+    author: 'Camille-Dev 🩵',
     role: 0,
     category: 'ai',
-    longDescription: { en: 'AI + YouTube + Edit: Chat, Images, Music, Video, and Image Editing' },
+    longDescription: { en: 'AI Multi-Outils par Camille : Chat, Images, YouTube et Retouches' },
     guide: {
-      en: `.ai [message] → chat with AI  
-.ai edit [prompt] (reply to image optional) → generate or edit image  
-.ai youtube -v [query/url] → download video  
-.ai youtube -a [query/url] → download audio  
-.ai clear → reset conversation`
+      fr: `.ai [message] → Parler avec Camille  
+.ai edit [texte] → Laisser Camille dessiner  
+.ai youtube -v [titre] → Vidéo par Camille  
+.ai youtube -a [titre] → Son par Camille  
+.ai clear → Tout effacer`
     }
   },
 
   onStart: async function ({ api, event, args, message }) {
-    const userInput = args.join(' ').trim();
-    if (!userInput) return message.reply("❗ Please enter a message.");
-    if (['clear', 'reset'].includes(userInput.toLowerCase())) {
-      return await resetConversation(api, event, message);
-    }
-    return await handleAIRequest(api, event, userInput, message);
+    const input = args.join(' ').trim();
+    if (!input) return message.reply("Ahiii ! Tu veux quoi ? Parle à Camille !");
+    if (['clear', 'reset'].includes(input.toLowerCase())) return await resetConversation(api, event, message);
+    return await handleAIRequest(api, event, input, message);
   },
 
   onReply: async function ({ api, event, Reply, message }) {
     if (event.senderID !== Reply.author) return;
-    const userInput = event.body?.trim();
-    if (!userInput) return;
-    if (['clear', 'reset'].includes(userInput.toLowerCase())) {
-      return await resetConversation(api, event, message);
-    }
+    const body = event.body?.trim();
+    if (!body) return;
+    if (['clear', 'reset'].includes(body.toLowerCase())) return await resetConversation(api, event, message);
+    
     if (Reply.results && Reply.type) {
-      const idx = parseInt(userInput);
-      const list = Reply.results;
-      if (isNaN(idx) || idx < 1 || idx > list.length)
-        return message.reply("❌ Invalid selection (1-6).");
-      const selected = list[idx - 1];
+      const idx = parseInt(body) - 1;
+      if (idx < 0 || idx >= Reply.results.length) return message.reply("❌ Entre 1 et 6, Camille n'aime pas le bluff !");
       const type = Reply.type === "-v" ? "mp4" : "mp3";
-      const fileUrl = `${YT_API}?url=${encodeURIComponent(selected.url)}&type=${type}`;
       try {
-        const { data } = await axios.get(fileUrl);
-        const downloadUrl = data.download_url;
-        const filePath = await downloadFile(downloadUrl, type);
+        const { data } = await axios.get(`${YT_API}?url=${encodeURIComponent(Reply.results[idx].url)}&type=${type}`);
+        const filePath = await downloadFile(data.download_url, type);
         await message.reply({ attachment: fs.createReadStream(filePath) });
         fs.unlinkSync(filePath);
-      } catch {
-        message.reply(`❌ Failed to download ${type}.`);
-      }
+      } catch { message.reply("❌ Camille n'a pas pu charger le fichier."); }
     } else {
-      return await handleAIRequest(api, event, userInput, message, true);
+      return await handleAIRequest(api, event, body, message);
     }
-  },
-
-  onChat: async function ({ api, event, message }) {
-    const body = event.body?.trim();
-    if (!body?.toLowerCase().startsWith('ai ')) return;
-    const userInput = body.slice(3).trim();
-    if (!userInput) return;
-    return await handleAIRequest(api, event, userInput, message);
   }
 };
+          
