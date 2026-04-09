@@ -1,5 +1,4 @@
 const { getStreamsFromAttachment } = global.utils;
-const g = require("fca-aryan-nix");
 
 // Stockage temporaire pour notifications et réponses
 const notificationMemory = {};
@@ -8,48 +7,47 @@ const adminReplies = {};
 module.exports = {
   config: {
     name: "notification",
-    aliases: ["notify", "noti"],
+    aliases: ["notify", "noti", "alerte"],
     version: "6.0",
-    author: "NTKhang x Christus",
+    author: "Camille",
     countDown: 5,
     role: 2,
     category: "owner",
-    shortDescription: "📢 Envoie une notification stylée et permet aux admins de répondre via le bot",
-    longDescription: "Envoie un message stylé à tous les groupes avec nom du groupe et notifie les admins des réponses pour qu'ils puissent répondre via le bot.",
-    guide: { en: "notification <message>" },
+    shortDescription: "📢 Lance une nouvelle dans tous les quartiers (groupes)",
+    longDescription: "Envoie un message stylé à tous les groupes et permet aux Vieux Pères de répondre au quartier.",
+    guide: { fr: "{pn} <ton message>" },
     usePrefix: false,
     noPrefix: true
   },
 
-  // Commande principale : envoi de la notification
   onStart: async function({ message, api, event, threadsData, envCommands, commandName, args }) {
     const { delayPerGroup = 300 } = envCommands[commandName] || {};
-    if (!args[0]) return message.reply("⚠ Veuillez entrer le message à envoyer à tous les groupes.");
+    if (!args[0]) return message.reply("Ahiii ! Tu veux annoncer quoi ? Écris le message d'abord ! 🙄");
 
     const allThreads = (await threadsData.getAll())
       .filter(t => t.isGroup && t.members.find(m => m.userID == api.getCurrentUserID())?.inGroup);
 
-    if (!allThreads.length) return message.reply("⚠ Aucun groupe trouvé.");
+    if (!allThreads.length) return message.reply("⚠️ Aucun quartier (groupe) trouvé dans ma liste.");
 
-    message.reply(`⏳ Début de l'envoi aux ${allThreads.length} groupes...`);
+    message.reply(`⏳ Attache ton pagne, je lance la nouvelle dans ${allThreads.length} quartiers...`);
 
     let sendSuccess = 0;
     const sendError = [];
 
     for (const thread of allThreads) {
-      let groupName = thread.name || "Groupe inconnu";
-      if (!thread.name) {
-        try { const info = await api.getThreadInfo(thread.threadID); groupName = info.threadName || groupName; } catch {}
-      }
-
+      let groupName = thread.name || "Quartier inconnu";
+      
       const notificationBody = `
-━━━━━━━━━━━━━━
-📢 𝐍𝐎𝐓𝐈𝐅𝐈𝐂𝐀𝐓𝐈𝐎𝐍
-🏷️ 𝐆𝐫𝐨𝐮𝐩 𝐧𝐚𝐦𝐞: ${groupName}
+┏━━━━━━━ 🇨🇮 ━━━━━━━┓
+   📢 𝗟𝗔 𝗡𝗢𝗨𝗩𝗘𝗟𝗟𝗘 𝗘𝗦𝗧 𝗟𝗔̀
+┗━━━━━━━ 🇨🇮 ━━━━━━━┛
+📍 𝗤𝘂𝗮𝗿𝘁𝗶𝗲𝗿 : ${groupName}
 
-💬 
+💬 𝗠𝗘𝗦𝗦𝗔𝗚𝗘 :
 ${args.join(" ")}
 
+───────────────────
+📢 𝖱𝖾́𝗉𝗈𝗇𝖽𝖾𝗓 𝖺̀ 𝖼𝖾 𝗆𝖾𝗌𝗌𝖺𝗀𝖾 𝗉𝗈𝗎𝗋 𝗉𝖺𝗋𝗅𝖾𝗋 𝖺𝗎𝗑 𝖵𝗂𝖾𝗎𝗑 𝖯𝖾̀𝗋𝖾𝗌 !
       `.trim();
 
       const formSend = {
@@ -63,25 +61,24 @@ ${args.join(" ")}
       try {
         const sentMsg = await api.sendMessage(formSend, thread.threadID);
         sendSuccess++;
-        // Stocke le message pour call admin
         notificationMemory[`${thread.threadID}_${sentMsg.messageID}`] = { groupName };
         await new Promise(resolve => setTimeout(resolve, delayPerGroup));
       } catch (err) { sendError.push({ threadID: thread.threadID, groupName, error: err.message }); }
     }
 
-    // Bilan
     let bilan = `
-━━━━━━━━━━━━
-📬 𝐁𝐈𝐋𝐀𝐍 𝐃𝐄 𝐋'𝐄𝐍𝐕𝐎𝐈
-✅ Groupes réussis : ${sendSuccess}
-❌ Groupes échoués : ${sendError.length}
+╔════ 📝 𝗕𝗜𝗟𝗔𝗡 𝗗𝗨 𝗖𝗥𝗜𝗘𝗨𝗥 ════╗
+✅ Quartiers informés : ${sendSuccess}
+❌ Quartiers échoués : ${sendError.length}
 `;
-    if (sendError.length) sendError.forEach(err => { bilan += `❌ ${err.groupName} : ${err.error}\n`; });
-    bilan += `━━━━━━━━━━━━`;
+    if (sendError.length) {
+        bilan += "────────────────────\n";
+        sendError.forEach(err => { bilan += `📍 ${err.groupName} : Dra technique\n`; });
+    }
+    bilan += `╚══════════════════════╝`;
     message.reply(bilan.trim());
   },
 
-  // Détection des réponses à la notification pour call admin
   onMessage: async function({ api, event }) {
     if (!event.messageReply) return;
 
@@ -90,32 +87,26 @@ ${args.join(" ")}
     if (!notificationKey) return;
 
     const { groupName } = notificationMemory[notificationKey];
-    const userName = event.senderName;
+    const userName = event.senderName || "Un mogo";
     const userID = event.senderID;
 
-    // Prépare le message pour les admins
     const adminMessage = `
-━━━━━━━━━━━━
-👤 𝐑𝐄𝐏𝐎𝐍𝐒𝐄 𝐀̀ 𝐍𝐎𝐓𝐈𝐅𝐈𝐂𝐀𝐓𝐈𝐎𝐍
-📝 Nom : ${userName}
-🆔 ID : ${userID}
-🏷️ Groupe : ${groupName}
+╔════ 🔔 𝗥𝗘́𝗣𝗢𝗡𝗦𝗘 𝗗𝗨 𝗣𝗘𝗧𝗜𝗧 ════╗
+👤 𝗡𝗼𝗺 : ${userName}
+🆔 𝗜𝗗 : ${userID}
+📍 𝗤𝘂𝗮𝗿𝘁𝗶𝗲𝗿 : ${groupName}
 ──────────────────────────
-💬 Message :
+💬 𝗜𝗹 𝗱𝗶𝘁 𝗾𝘂𝗲 :
 ${event.body}
-💡 Répondez à ce message pour répondre à l'utilisateur via le bot.
-━━━━━━━━━━━━
+
+💡 Vieux Père, réponds ici pour lui donner l'heure !
+╚══════════════════════════╝
     `.trim();
 
-    // Liste des admins (role = 2)
-    const allThreads = await api.getThreadList(1000, null, ['INBOX']);
-    const adminIDs = allThreads
-      .filter(t => t.isGroup)
-      .flatMap(t => t.members.filter(m => m.role === 2).map(m => m.userID));
-    const uniqueAdmins = [...new Set(adminIDs)];
+    // On récupère les admins bot configurés dans global.GoatBot
+    const adminIDs = global.GoatBot.config.adminBot;
 
-    // Envoie à chaque admin et stocke pour la réponse
-    for (const adminID of uniqueAdmins) {
+    for (const adminID of adminIDs) {
       try {
         const sent = await api.sendMessage(adminMessage, adminID);
         adminReplies[sent.messageID] = {
@@ -126,15 +117,19 @@ ${event.body}
     }
   },
 
-  // Gestion de la réponse d’un admin
   onReply: async function({ api, event }) {
     const replyData = adminReplies[event.messageReply?.messageID];
     if (!replyData) return;
 
     const { originalThreadID, userID } = replyData;
     try {
-      await api.sendMessage(event.body, originalThreadID || userID);
-      delete adminReplies[event.messageReply.messageID];
-    } catch {}
+      await api.sendMessage({
+        body: `┏━━━━ 🇨🇮 𝗥𝗘́𝗣𝗢𝗡𝗦𝗘 𝗔𝗗𝗠𝗜𝗡 ━━━━┓\n\n${event.body}\n\n┗━━━━━━━━━━━━━━━━━━━━┛`
+      }, originalThreadID || userID);
+      // On ne delete pas forcément si on veut pouvoir continuer la discussion
+    } catch (err) {
+      api.sendMessage("❌ Impossible de livrer la réponse au petit.", event.threadID);
+    }
   }
 };
+                        
