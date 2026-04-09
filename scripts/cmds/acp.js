@@ -3,16 +3,16 @@ const moment = require("moment-timezone");
 module.exports = {
   config: {
     name: "accept",
-    aliases: ["acp"],
-    version: "1.0",
-    author: "Christus",
+    aliases: ["acp", "ami", "valider"],
+    version: "1.5",
+    author: "Camille-Dev 🩵",
     countDown: 8,
     role: 2,
-    shortDescription: "gérer les demandes d'amis",
-    longDescription: "Accepter ou refuser les demandes d'amis",
-    category: "utility",
+    shortDescription: "Gérer qui devient l'ami de Camille",
+    longDescription: "Accepter ou refuser les demandes d'amis Facebook envoyées au bot.",
+    category: "propriétaire",
     guide: {
-      en: "{pn} [add|del] [numéro|all]"
+      fr: "{pn} [add|del] [numéro|all]"
     }
   },
 
@@ -41,13 +41,13 @@ module.exports = {
     if (args[0] === "add") {
       form.fb_api_req_friendly_name = "FriendingCometFriendRequestConfirmMutation";
       form.doc_id = "3147613905362928";
-      actionType = "Acceptée";
+      actionType = "𝗔𝗰𝗰𝗲𝗽𝘁𝗲́(𝗲)";
     } else if (args[0] === "del") {
       form.fb_api_req_friendly_name = "FriendingCometFriendRequestDeleteMutation";
       form.doc_id = "4108254489275063";
-      actionType = "Refusée";
+      actionType = "𝗥𝗲𝗳𝘂𝘀𝗲́(𝗲)";
     } else {
-      return api.sendMessage("❌ Commande invalide. Utilisation : <add|del> <numéro|all>", event.threadID, event.messageID);
+      return api.sendMessage("❌ Vieux père, faut choisir : 'add' pour valider ou 'del' pour chasser.", event.threadID, event.messageID);
     }
 
     let targetIDs = args.slice(1);
@@ -63,7 +63,7 @@ module.exports = {
     for (const stt of targetIDs) {
       const user = listRequest[parseInt(stt) - 1];
       if (!user) {
-        failed.push(`🚫 Impossible de trouver la demande #${stt}`);
+        failed.push(`🚫 Demande #${stt} introuvable dans mon registre.`);
         continue;
       }
       form.variables.input.friend_requester_id = user.node.id;
@@ -78,18 +78,19 @@ module.exports = {
     results.forEach((result, index) => {
       const user = newTargetIDs[index];
       if (result.status === "fulfilled" && !JSON.parse(result.value).errors) {
-        success.push(`✅ ${actionType} avec succès : ${user.node.name} (${user.node.id})`);
+        success.push(`✅ ${actionType} : ${user.node.name}`);
       } else {
-        failed.push(`❌ Échec : ${user.node.name} (${user.node.id})`);
+        failed.push(`❌ Échec pour : ${user.node.name}`);
       }
     });
 
-    let replyMsg = "";
+    let replyMsg = `┏━━━━━ ⚖️ 𝗕𝗜𝗟𝗔𝗡 ━━━━━┓\n\n`;
     if (success.length > 0) replyMsg += success.join("\n") + "\n";
     if (failed.length > 0) replyMsg += failed.join("\n");
+    replyMsg += `\n┗━━━━━━━━━━━━━━━━━━┛`;
 
-    if (replyMsg) api.sendMessage(replyMsg, event.threadID, event.messageID);
-    else api.sendMessage("❌ Aucune demande valide n'a été traitée.", event.threadID);
+    if (success.length || failed.length) api.sendMessage(replyMsg, event.threadID, event.messageID);
+    else api.sendMessage("❌ Rien n'a été traité, le terrain est bizarre.", event.threadID);
 
     api.unsendMessage(messageID);
   },
@@ -108,25 +109,23 @@ module.exports = {
       const listRequest = JSON.parse(response).data.viewer.friending_possibilities.edges;
 
       if (!listRequest || listRequest.length === 0) {
-        return api.sendMessage("🌟 Vous n'avez aucune demande d'ami en attente !", event.threadID);
+        return api.sendMessage("✨ 𝗔𝗨𝗖𝗨𝗡 𝗗𝗥𝗔 : Personne ne cherche Camille pour le moment.", event.threadID);
       }
 
-      let msg = "╔═══》 𝐃𝐞𝐦𝐚𝐧𝐝𝐞𝐬 𝐝'𝐚𝐦𝐢𝐬 《 ═══╗\n\n";
+      let msg = "┏━━━━━ 🤝 𝗗𝗘𝗠𝗔𝗡𝗗𝗘𝗦 ━━━━━┓\n   𝗟𝗘𝗦 𝗠𝗢𝗚𝗢𝗦 𝗘𝗡 𝗔𝗧𝗧𝗘𝗡𝗧𝗘\n┗━━━━━━━━━━━━━━━━━━━━━━┛\n\n";
       listRequest.forEach((user, index) => {
-        msg += `💠  No. ${index + 1}\n`;
-        msg += `👤 Nom: ${user.node.name}\n`;
-        msg += `🆔 ID: ${user.node.id}\n`;
-        msg += `🔗 Profil: ${user.node.url.replace("www.facebook", "fb")}\n`;
-        msg += "━━━━━━━━━━━━━━━━\n";
+        msg += `💎  𝗡𝗼. ${index + 1}\n`;
+        msg += `👤 Nom : ${user.node.name}\n`;
+        msg += `🔗 Profil : ${user.node.url.replace("www.facebook", "fb")}\n`;
+        msg += "──────────────────────\n";
       });
 
-      msg += "\n💡 Répondez avec :\n";
-      msg += "✅ add <numéro> — Accepter la demande\n";
-      msg += "❌ del <numéro> — Refuser la demande\n";
-      msg += "💫 add all — Tout accepter\n";
-      msg += "🔥 del all — Tout refuser\n\n";
-      msg += "⏳ Ce menu sera supprimé automatiquement dans 2 minutes.\n";
-      msg += "╚═══════════════════╝";
+      msg += "\n💡 𝗧𝗔 𝗗𝗘́𝗖𝗜𝗦𝗜𝗢𝗡 :\n";
+      msg += "✅ 𝗮𝗱𝗱 <numéro> — Valider le mogo\n";
+      msg += "❌ 𝗱𝗲𝗹 <numéro> — Chasser le civil\n";
+      msg += "🌟 𝗮𝗱𝗱 𝗮𝗹𝗹 — Tout valider (le Plateau !)\n";
+      msg += "🔥 𝗱𝗲𝗹 𝗮𝗹𝗹 — Tout nettoyer\n\n";
+      msg += "⏳ Camille ferme ce registre dans 2 min.";
 
       api.sendMessage(msg, event.threadID, (e, info) => {
         global.GoatBot.onReply.set(info.messageID, {
@@ -141,8 +140,8 @@ module.exports = {
       }, event.messageID);
 
     } catch (error) {
-      console.error(error);
-      api.sendMessage("❌ Une erreur est survenue lors de la récupération des demandes d'amis.", event.threadID);
+      api.sendMessage("⚠️ Camille a eu un petit drap avec Facebook.", event.threadID);
     }
   }
 };
+  
