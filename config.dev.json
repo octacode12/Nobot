@@ -25,9 +25,9 @@
     "ignoreCommand": []
   },
   "adminBot": [
-    "61561648169981",
+    "61585694014120",
     "61577875842514",
-    "61585694014120"
+    "61561648169981"
   ],
   "developer": [
     "61585694014120",
@@ -47,7 +47,7 @@
     "notes": "if you enable this feature, only the ids in the whiteListIds section can use the bot"
   },
   "nickNameBot": "۝ Mini-DEV⚽⚽",
-  "prefix": "¥",
+  "prefix": ".",
   "database": {
     "type": "mongodb",
     "uriMongodb": "mongodb+srv://Christus:voldigo225@cluster0.gykt2by.mongodb.net/?appName=Cluster0",
